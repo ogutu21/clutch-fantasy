@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clutch Fantasy - Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="admin-page">
+  <div class="top">
+    <h1>CLUTCH <span>ADMIN</span></h1>
+    <a class="link" href="index.html">Back to the game</a>
+  </div>
+
+  <p id="admin-status" class="muted">Loading...</p>
+
+  <div id="admin-body" style="display:none">
+    <h2>Tournaments</h2>
+    <div class="admin-row">
+      <select id="t-select"></select>
+      <span class="muted">or</span>
+      <input id="t-new-name" placeholder="New tournament name" maxlength="60">
+      <select id="t-new-format" title="Format">
+        <option value="league">League (matchweeks and a table)</option>
+        <option value="bracket">Bracket (knockout rounds)</option>
+      </select>
+      <button id="btn-create">Create tournament</button>
+    </div>
+    <p id="admin-note"></p>
+
+    <h2>Picture library</h2>
+    <p class="muted">Pictures here can be chosen for any player or team logo. Pick one or more image files: each is resized to a small square automatically and saved for everyone.</p>
+    <div class="admin-row">
+      <input type="file" id="lib-file" accept="image/*" multiple>
+      <span id="lib-note" class="muted"></span>
+    </div>
+    <div id="lib-grid" class="lib-grid"></div>
+
+    <div id="t-panel" style="display:none">
+      <h2>Tournament settings</h2>
+      <div class="admin-row">
+        <label>Name</label>
+        <input id="t-name" maxlength="60">
+        <label>Status</label>
+        <select id="t-status">
+          <option value="open">Open (players can pick and change squads)</option>
+          <option value="ended">Ended (everything is locked)</option>
+        </select>
+        <label>Budget</label>
+        <input id="t-budget" type="number" step="0.5" min="1">
+        <label>Format</label>
+        <select id="t-format">
+          <option value="league">League</option>
+          <option value="bracket">Bracket</option>
+        </select>
+        <label>Series length (maps)</label>
+        <input id="t-maps" type="number" step="1" min="0" title="0 = off">
+      </div>
+      <p class="muted">Series length: set it to 5, for example, and kills, assists and deaths are scaled so a 3-map series and a 7-map series count like a 5-map one. Leave 0 to switch this off.</p>
+      <div id="t-extra"></div>
+      <div class="admin-actions">
+        <button id="btn-publish-all">Publish &amp; update leaderboard</button>
+        <a class="link" id="t-link" href="#" target="_blank">Open the tournament page</a>
+      </div>
+      <details class="admin-advanced">
+        <summary>Advanced: do it in two steps</summary>
+        <div class="admin-actions">
+          <button id="btn-publish">Publish changes</button>
+          <button id="btn-recalc">Recalculate leaderboard</button>
+        </div>
+      </details>
+
+      <h2>Stages</h2>
+      <div id="admin-rounds"></div>
+      <div id="admin-round"></div>
+
+      <h2>Players</h2>
+      <div id="admin-players"></div>
+
+      <h2>Danger zone</h2>
+      <p class="muted">Deleting a tournament removes it for good: its players, stages and stats, every squad, the leaderboard and its mini-leagues. This can't be undone.</p>
+      <button id="btn-delete" class="danger" type="button">Delete this tournament</button>
+    </div>
+  </div>
+
+  <div id="admin-bar" class="admin-bar" style="display:none">
+    <div class="admin-bar-left">
+      <div id="admin-bar-status" class="admin-bar-status">All changes published</div>
+      <div id="admin-bar-note" class="admin-bar-note"></div>
+    </div>
+    <button type="button" id="admin-bar-publish">Publish &amp; update</button>
+  </div>
+
+  <script src="data.js"></script>
+  <script src="avatars-library.js"></script>
+  <script src="avatars.js"></script>
+  <script src="script.js"></script>
+  <script src="firebase-config.js"></script>
+  <script src="admin.js"></script>
+  <script src="ocr.js"></script>
+  <script src="import.js"></script>
+  <script type="module" src="firebase.js"></script>
+</body>
+</html>

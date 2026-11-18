@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clutch Fantasy</title>
+  <meta name="theme-color" content="#07080c">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="top">
+    <h1>CLUTCH <span>FANTASY</span></h1>
+    <div id="auth-bar"></div>
+  </div>
+
+  <!-- Home page: the list of tournaments -->
+  <div id="home-view">
+    <h2>Tournaments</h2>
+    <p class="muted">Pick a tournament, then sign in and build your squad.</p>
+    <div id="tournament-list"></div>
+  </div>
+
+  <!-- Game page: one tournament -->
+  <div id="game-view">
+  <a class="link" href="index.html">&larr; All tournaments</a>
+  <div class="tournament-head">
+    <h2 id="tournament-name"></h2>
+    <span id="tournament-status" class="chip"></span>
+  </div>
+  <p id="game-error" class="error"></p>
+
+  <div id="round-tabs"></div>
+  <p id="lock-note"></p>
+
+  <nav id="tabbar" class="tabbar" aria-label="Game sections">
+    <button type="button" data-tab="home">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      <span>Home</span>
+    </button>
+    <button type="button" data-tab="squad">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      <span>Squad</span>
+    </button>
+    <button type="button" data-tab="market">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      <span>Market</span>
+    </button>
+    <button type="button" data-tab="matches">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      <span>Matches</span>
+    </button>
+    <button type="button" data-tab="ranks">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
+      <span>Ranks</span>
+    </button>
+  </nav>
+
+  <!-- HOME -->
+  <section class="tab-pane" data-pane="home">
+    <div id="dashboard"></div>
+
+    <h2>Details</h2>
+    <div class="stats">
+      <div class="stat"><span class="stat-label">Budget left</span><span id="budget" class="stat-value">48.0</span></div>
+      <div class="stat"><span class="stat-label">Spent</span><span id="spent" class="stat-value">0.0</span></div>
+      <div class="stat"><span class="stat-label">Squad</span><span class="stat-value"><span id="count">0</span>/6</span></div>
+      <div class="stat"><span class="stat-label">Round points</span><span id="round-points" class="stat-value">0.0</span></div>
+      <div class="stat"><span class="stat-label">Total points</span><span id="points" class="stat-value">0.0</span></div>
+      <div class="stat"><span class="stat-label">Transfers</span><span id="transfers" class="stat-value">0</span></div>
+      <div class="stat"><span class="stat-label">Transfer hit</span><span id="hit" class="stat-value">-0</span></div>
+    </div>
+
+    <h2>Stage by stage</h2>
+    <div id="stage-summary"></div>
+  </section>
+
+  <!-- SQUAD -->
+  <section class="tab-pane" data-pane="squad" hidden>
+    <h2>Chips</h2>
+    <div id="chips"></div>
+    <p id="chip-note"></p>
+
+    <div class="section-head">
+      <h2>Your Squad</h2>
+      <div id="view-switch"></div>
+    </div>
+    <p id="formation-note"></p>
+    <div id="team-slot" class="team-slot"></div>
+    <div id="squad-view"></div>
+    <div class="share-row"><button type="button" id="share-btn">Share squad picture</button></div>
+  </section>
+
+  <!-- MARKET -->
+  <section class="tab-pane" data-pane="market" hidden>
+    <div class="mini-bar">
+      <span>Budget <b id="mini-budget">48.0</b></span>
+      <span>Squad <b id="mini-count">0</b>/6</span>
+    </div>
+
+    <div class="market-tools">
+      <input id="market-search" type="search" placeholder="Search players or teams" autocomplete="off">
+      <div class="market-selects">
+        <select id="market-team" aria-label="Team"></select>
+        <select id="market-sort" aria-label="Sort by">
+          <option value="price-desc">Price: high to low</option>
+          <option value="price-asc">Price: low to high</option>
+          <option value="points-desc">Most total points</option>
+          <option value="round-desc">Best this round</option>
+          <option value="name-asc">Name A-Z</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="section-head">
+      <h2>Players</h2>
+      <div id="role-filter"></div>
+    </div>
+    <p id="market-count" class="muted"></p>
+    <div id="player-list" class="market-grid"></div>
+  </section>
+
+  <!-- MATCHES -->
+  <section class="tab-pane" data-pane="matches" hidden>
+    <div id="match-center"></div>
+  </section>
+
+  <!-- RANKS -->
+  <section class="tab-pane" data-pane="ranks" hidden>
+    <h2>Leaderboard</h2>
+    <div id="board-tabs"></div>
+    <p id="board-note"></p>
+    <div id="board-body"></div>
+  </section>
+  </div>
+
+  <dialog id="auth-dialog">
+    <form id="auth-form">
+      <h3>Sign in</h3>
+      <button type="button" id="auth-google">Continue with Google</button>
+      <p class="muted">or use email</p>
+      <div id="auth-name-row" style="display:none">
+        <input id="auth-name" placeholder="Display name" maxlength="30" autocomplete="nickname">
+      </div>
+      <input id="auth-email" type="email" placeholder="Email" required autocomplete="email">
+      <input id="auth-password" type="password" placeholder="Password (6+ characters)" required autocomplete="current-password">
+      <p id="auth-error" class="error"></p>
+      <div class="dialog-actions">
+        <button type="submit" id="auth-submit">Sign in</button>
+        <button type="button" id="auth-switch">Create an account</button>
+        <button type="button" id="auth-cancel">Cancel</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="account-dialog">
+    <div id="account-body"></div>
+    <div class="dialog-actions">
+      <button type="button" id="account-ranks">Leaderboard</button>
+      <button type="button" id="account-signout" class="outline">Sign out</button>
+      <button type="button" id="account-close">Close</button>
+    </div>
+  </dialog>
+
+  <dialog id="player-dialog">
+    <div id="player-body"></div>
+    <div class="dialog-actions">
+      <button type="button" id="player-action">Add to squad</button>
+      <button type="button" id="player-close">Close</button>
+    </div>
+  </dialog>
+
+  <script src="data.js"></script>
+  <script src="avatars-library.js"></script>
+  <script src="avatars.js"></script>
+  <script src="script.js"></script>
+  <script src="firebase-config.js"></script>
+  <script src="social.js"></script>
+  <script src="nav.js"></script>
+  <script src="home.js"></script>
+  <script src="profile.js"></script>
+  <script src="pickem.js"></script>
+  <script src="matches.js"></script>
+  <script src="account.js"></script>
+  <script src="share.js"></script>
+  <script src="market-extras.js"></script>
+  <script src="stats.js"></script>
+  <script src="rules.js"></script>
+  <script type="module" src="firebase.js"></script>
+</body>
+</html>
