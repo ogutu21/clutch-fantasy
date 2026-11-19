@@ -40,10 +40,20 @@
 
     // Header
     const head = el("div", "ac-head");
-    head.appendChild(el("span", "avatar big", initials(me.name)));
+    head.appendChild(Avatars.userEl(me.name, me.uid, true));
     const titles = el("div");
     titles.appendChild(el("div", "ac-name", me.name));
     titles.appendChild(el("div", "ac-sub", tournamentInfo ? tournamentInfo.name : "Practice tournament"));
+    if (isRealTournament() && window.Cloud && window.Cloud.saveProfile) {
+      const change = el("button", "outline ac-change", "Change picture");
+      change.type = "button";
+      change.addEventListener("click", function () {
+        Avatars.pick("Your picture", Avatars.profileOf(me.uid), function (look) {
+          Avatars.saveMyPicture(me.uid, look).catch(function (e) { alert("Couldn't save your picture: " + (e.message || e)); });
+        });
+      });
+      titles.appendChild(change);
+    }
     head.appendChild(titles);
     body.appendChild(head);
 
@@ -141,7 +151,7 @@
     const card = el("div", "ac-card");
     card.tabIndex = 0;
     card.setAttribute("role", "button");
-    card.appendChild(el("span", "avatar", initials(me.name)));
+    card.appendChild(Avatars.userEl(me.name, me.uid, false));
     const text = el("div", "ac-card-text");
     text.appendChild(el("div", "ac-card-name", me.name));
     text.appendChild(el("div", "ac-card-sub", "View profile and scoring history"));

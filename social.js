@@ -75,6 +75,7 @@
 
   async function handleAuth(u) {
     user = u;
+    if (u) Avatars.fetchProfiles([u.uid]);
     synced = false;
     openCode = null;
     renderAuthBar();
@@ -242,8 +243,8 @@
     return ((parts[0] || "?")[0] + (parts.length > 1 ? parts[parts.length - 1][0] : "")).toUpperCase();
   }
 
-  function avatar(name, big) {
-    return el("span", "avatar" + (big ? " big" : ""), initials(name));
+  function avatar(name, big, uid) {
+    return Avatars.userEl(name, uid, big);
   }
 
   // The top three as a podium (shown when there are at least three players).
@@ -252,7 +253,7 @@
     [1, 0, 2].forEach(function (i) {
       const row = rows[i];
       const col = el("div", "podium-col place-" + (i + 1) + (user && row.uid === user.uid ? " me" : ""));
-      col.appendChild(avatar(row.name, true));
+      col.appendChild(avatar(row.name, true, row.uid));
       col.appendChild(el("div", "podium-name", row.name));
       col.appendChild(el("div", "podium-pts", row.total.toFixed(1)));
       col.appendChild(el("div", "podium-step", String(ranks[i])));
@@ -264,6 +265,7 @@
   // rows: [{ uid, name, total, rounds: [points per stage] }]
   function makeTable(rows) {
     const box = el("div", "board-wrap");
+    Avatars.fetchProfiles(rows.map(function (r) { return r.uid; }));
 
     // Equal points share a rank.
     const ranks = [];
@@ -279,7 +281,7 @@
     const mine = user ? rows.findIndex(function (r) { return r.uid === user.uid; }) : -1;
     if (mine >= 0) {
       const banner = el("div", "you-banner");
-      banner.appendChild(avatar(rows[mine].name));
+      banner.appendChild(avatar(rows[mine].name, false, rows[mine].uid));
       banner.appendChild(el("span", "", "You are #" + ranks[mine] + " of " + rows.length));
       banner.appendChild(el("b", "", rows[mine].total.toFixed(1) + " pts"));
       box.appendChild(banner);
@@ -311,7 +313,7 @@
       tr.appendChild(el("td", ranks[i] <= 3 ? "rank rank-" + ranks[i] : "rank", String(ranks[i])));
       const nameCell = el("td", "player-cell");
       const inner = el("div", "pc-inner");
-      inner.appendChild(avatar(row.name));
+      inner.appendChild(avatar(row.name, false, row.uid));
       inner.appendChild(el("span", "pname", row.name));
       if (isMe) inner.appendChild(el("span", "you-tag", "YOU"));
       nameCell.appendChild(inner);

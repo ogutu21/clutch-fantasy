@@ -34,10 +34,74 @@
     return ((parts[0] || "?")[0] + (parts.length > 1 ? parts[1][0] : "")).toUpperCase();
   }
 
+  // The picture address for a look (library picture, uploaded photo or file), or null for none.
+  function srcOf(look) {
+    if (typeof look !== "string") return null;
+    if (/^lib:[\w-]+$/.test(look)) { const it = cloudLib[look.slice(4)]; return it ? it.data : null; }
+    if (/^data:image\/(png|jpeg|webp);base64,/.test(look)) return look;
+    if (/^img:[\w\-./]+$/.test(look)) return look.slice(4);
+    return null;
+  }
+
+  // ---- Players' own pictures (Firestore "profiles/<uid>") ----
+  const profiles = {};      // uid -> look
+  const asked = {};         // uids already requested
+  function initialsOf(name) {
+    const parts = String(name || "?").trim().split(/\s+/);
+    return ((parts[0] || "?")[0] + (parts.length > 1 ? parts[parts.length - 1][0] : "")).toUpperCase();
+  }
+  // The round badge used for people (leaderboard, profile): their picture if they chose one, otherwise initials.
+  function userEl(name, uid, big) {
+    const b = document.createElement("span");
+    b.className = "avatar" + (big ? " big" : "");
+    b.setAttribute("data-uid", uid || "");
+    b.setAttribute("data-name", name || "");
+    b.setAttribute("data-big", big ? "1" : "");
+    const src = uid ? srcOf(profiles[uid]) : null;
+    if (src) {
+      b.classList.add("has-pic");
+      const img = document.createElement("img");
+      img.src = src;
+      img.alt = name || "";
+      b.appendChild(img);
+    } else {
+      b.textContent = initialsOf(name);
+    }
+    return b;
+  }
+  function refreshUserEls() {
+    document.querySelectorAll(".avatar[data-uid]").forEach(function (n) {
+      const uid = n.getAttribute("data-uid");
+      if (!uid) return;
+      const fresh = userEl(n.getAttribute("data-name"), uid, !!n.getAttribute("data-big"));
+      n.className = fresh.className;
+      n.innerHTML = fresh.innerHTML;
+    });
+  }
+  async function fetchProfiles(uids) {
+    if (!window.Cloud || !window.Cloud.loadProfiles) return;
+    const need = (uids || []).filter(function (u) { return u && !asked[u]; });
+    if (!need.length) return;
+    need.forEach(function (u) { asked[u] = true; });
+    try {
+      const got = await window.Cloud.loadProfiles(need);
+      Object.keys(got || {}).forEach(function (u) { profiles[u] = got[u]; });
+      refreshUserEls();
+    } catch (e) { need.forEach(function (u) { delete asked[u]; }); }
+  }
+  // Save my own picture ("" removes it).
+  async function saveMyPicture(uid, look) {
+    await window.Cloud.saveProfile(look);
+    if (look) profiles[uid] = look; else delete profiles[uid];
+    asked[uid] = true;
+    refreshUserEls();
+  }
+  window.addEventListener("avatars-ready", refreshUserEls);
+
   // An element showing the look, a photo, or initials. label is used for the initials and the alt text.
   function make(look, label, size) {
     const box = document.createElement("span");
-    box.className = "avatar";
+    box.className = "pic";
     const px = (size || 36) + "px";
     box.style.width = px;
     box.style.height = px;
@@ -55,7 +119,7 @@
         img.alt = label || "";
         box.appendChild(img);
       } else {
-        box.classList.add("avatar-initials");
+        box.classList.add("pic-initials");
         box.style.fontSize = Math.round((size || 36) * 0.4) + "px";
         box.textContent = initials(label);
       }
@@ -121,7 +185,7 @@
 
     const grid = document.createElement("div");
     grid.className = "av-grid";
-    function close() { document.body.removeChild(back); }
+    function close() { if (back.parentNode) back.parentNode.removeChild(back); }
     function choose(look) { close(); onPick(look); }
     const lib = library();
     cloudOrder.forEach(function (id) {
@@ -183,7 +247,8 @@
     box.appendChild(row);
     box.appendChild(msg);
     back.addEventListener("click", function (e) { if (e.target === back) close(); });
-    document.body.appendChild(back);
+    // A modal <dialog> sits above everything else on the page, so inside one the chooser has to live in it.
+    (document.querySelector("dialog[open]") || document.body).appendChild(back);
   }
 
   // Shrink an image to a 256px square and add it to the shared library (organisers only). done(err, item).
@@ -208,6 +273,7 @@
 
   const Avatars = {
     make: make, pick: pick, fromFile: fromFile, addToLibrary: addToLibrary, removeFromLibrary: removeFromLibrary,
+    srcOf: srcOf, userEl: userEl, fetchProfiles: fetchProfiles, saveMyPicture: saveMyPicture, profileOf: function (uid) { return profiles[uid] || ""; },
     libraryItems: function () { return cloudOrder.map(function (id) { return cloudLib[id]; }); }, reload: loadCloud,
   };
   window.Avatars = Avatars;

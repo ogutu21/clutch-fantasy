@@ -159,6 +159,21 @@ if (!configured) {
       }
     },
 
+    // Players' own pictures: one small document per player, only they can change theirs.
+    loadProfiles: async function (uids) {
+      const out = {};
+      for (let i = 0; i < uids.length; i += MAX_LEAGUE_SIZE) {
+        const chunk = uids.slice(i, i + MAX_LEAGUE_SIZE);
+        const snap = await getDocs(query(collection(db, "profiles"), where(documentId(), "in", chunk)));
+        snap.forEach(function (d) { if (d.data().avatar) out[d.id] = d.data().avatar; });
+      }
+      return out;
+    },
+    saveProfile: async function (avatar) {
+      const u = needUser();
+      await setDoc(doc(db, "profiles", u.uid), { avatar: String(avatar || ""), updatedAt: serverTimestamp() });
+    },
+
     // Shared picture library (small resized pictures; only the organiser can add or remove).
     listAvatars: async function () {
       const snap = await getDocs(collection(db, "avatarLibrary"));
