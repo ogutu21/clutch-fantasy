@@ -1,4 +1,4 @@
-.firebase/
+_save/
 node_modules/
 *.zip
-_save/
+.firebase/

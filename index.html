@@ -5,9 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Clutch Fantasy</title>
   <meta name="theme-color" content="#07080c">
+  <meta property="og:image" content="logo.jpg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
 </head>
 <body>
   <div class="top">
@@ -17,9 +23,15 @@
 
   <!-- Home page: the list of tournaments -->
   <div id="home-view">
+    <img class="home-logo" src="logo.jpg" alt="Clutch Fantasy - Call of Duty fantasy league" width="360" height="360">
     <h2>Tournaments</h2>
     <p class="muted">Pick a tournament, then sign in and build your squad.</p>
+    <div id="install-box" class="install-box" hidden>
+      <button type="button" id="install-btn">Install the app</button>
+      <span id="install-hint" class="muted"></span>
+    </div>
     <div id="tournament-list"></div>
+    <div id="season-box"></div>
   </div>
 
   <!-- Game page: one tournament -->
@@ -188,5 +200,34 @@
   <script src="stats.js"></script>
   <script src="rules.js"></script>
   <script type="module" src="firebase.js"></script>
+  <script>
+    // Install button: Chrome on Android offers it through beforeinstallprompt; iPhones need the Share menu.
+    (function () {
+      var box = document.getElementById("install-box"), btn = document.getElementById("install-btn"), hint = document.getElementById("install-hint");
+      var standalone = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone;
+      if (!box || standalone) return;
+      var deferred = null;
+      window.addEventListener("beforeinstallprompt", function (e) {
+        e.preventDefault(); deferred = e; hint.textContent = ""; btn.style.display = ""; box.hidden = false;
+      });
+      window.addEventListener("appinstalled", function () { box.hidden = true; });
+      btn.addEventListener("click", function () {
+        if (!deferred) return;
+        deferred.prompt();
+        deferred.userChoice.finally(function () { deferred = null; box.hidden = true; });
+      });
+      if (/iphone|ipad|ipod/i.test(navigator.userAgent)) {
+        btn.style.display = "none";
+        hint.textContent = "To install: tap the Share button in Safari, then Add to Home Screen.";
+        box.hidden = false;
+      }
+    })();
+  </script>
+  <script>
+    // Make the game installable and keep the shell available offline.
+    if ("serviceWorker" in navigator && location.protocol.indexOf("http") === 0) {
+      window.addEventListener("load", function () { navigator.serviceWorker.register("sw.js").catch(function () {}); });
+    }
+  </script>
 </body>
 </html>

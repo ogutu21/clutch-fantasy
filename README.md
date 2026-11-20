@@ -8,17 +8,9 @@ Live site: https://clutch-fantasy-55b29.web.app
 
 ## How the game works
 - **Squad:** 6 players (5 starters + 1 sub), a budget, and at most 3 players from one team.
-- **Roles:** AR, SMG, LMG, Shotgun, Marksman, Sniper. The organiser sets how many of each role a starting five may have.
+- **Roles:** AR, SMG, Marksman, Sniper. The organiser sets how many of each role a starting five may have.
 - **Points:** kills, assists, deaths, team win, MVP. Search & Destroy kills earn a bonus, bomb plants and defuses earn points,
   time on the hill (Hardpoint) earns points, and every map your team wins in its match earns points. All the numbers are set per tournament.
-- **Pictures:** in the admin Players section, each player has a Look button and each team has a logo button. Upload a photo or logo (shrunk to 96px automatically) or pick one from your own `avatars` folder (list the files in `avatars-library.js`). No picture shows initials.
-- **Picture library:** in the admin page, "Picture library" lets you pick image files (several at once). Each is resized to a 256px square and saved in Firestore for everyone, then appears in the picker for players and team logos. Deploy `firestore.rules` first.
-- **Full-quality pictures (Firebase Hosting):** copy image files into the `avatars` folder (letters, numbers, - and _ in the names; square, 512 to 1024px, under about 300 KB), run `node update-avatars.js` in the project folder to rebuild `avatars-library.js`, then `firebase deploy --only hosting`. They show in every picture chooser at original quality.
-- **Squad-not-ready banner:** the Home tab shows an amber banner (red under 24 hours to the deadline) when the squad for the open stage has fewer than 6 players, no sub, an invalid starting five, is over budget, or has no Team slot when that is on. After the deadline it says the squad locked unready. It only shows in the page, there are no emails or push messages.
-- **Leave-page check:** a player who leaves the page (or taps "All tournaments") with a squad that isn't ready, while the stage still has a deadline ahead, gets a confirmation first. Browsers show their own generic wording for closing the tab.
-- **Squads not ready (admin):** in the admin page, pick a stage and press "Check squads" to see who has a squad that isn't ready (too few players, no sub, invalid starting five, no Team slot), with a "Copy names" button for messaging them. Only players who saved a squad appear.
-- **Usernames:** new players choose a unique username when they create an account (3 to 20 letters, numbers or underscores; not case sensitive). Anyone can set or change theirs from the profile ("Set username"). It shows on the leaderboard straight away; stored scores pick it up the next time you press Publish. Reserved words like admin and organiser are blocked. Deploy `firestore.rules` first.
-- **Player profile pictures:** on the profile (tap your name card on Home) there is a "Change picture" button. Players choose from the picture library or upload their own photo. It shows on the profile and the leaderboard. Deploy `firestore.rules` first.
 - **Ownership %:** player cards show "Owned N%" (share of squads with that player in the stage). Worked out when you press Publish & update; only percentages are shown, never squads.
 - **Team slot (optional):** turn on "Use the Team slot" in the tournament settings. Players back one team per stage: +6 if it wins its match, +1 per map won (both editable). Free to change each stage. Off by default.
 - **Pick'Em:** predict who wins each match (Matches tab, Pick'Em). +3 per correct pick, +5 for a perfect stage, with its own leaderboard.
@@ -40,6 +32,14 @@ Live site: https://clutch-fantasy-55b29.web.app
 5. To remove a tournament for good, use **Delete this tournament** in the Danger zone at the bottom (you type its name to confirm).
    It deletes the squads, scores, Pick'Em picks and mini-leagues too. Deploy `firestore.rules` first.
 
+6. **Back up this tournament (JSON)** saves players, stages, results, settings and every squad, score and Pick'Em pick to a file. **Restore setup from a backup** puts back the players, stages, results and settings only.
+7. **Update prices** can work from performance (points) or demand (how many squads own the player; needs one Publish first).
+
+## Extras
+- Season table on the home page: points from all tournaments added together (newest tournament breaks ties).
+- Pick'Em leaderboard ties: points, then correct picks.
+- Installable on a phone (Add to Home Screen): `manifest.json`, `sw.js`, `icons/`. Pages always load from the network first, so deploys show straight away.
+
 ## Built with
 HTML, CSS and JavaScript (no build step), Firebase Authentication, Firestore and Hosting.
 
@@ -54,17 +54,10 @@ HTML, CSS and JavaScript (no build step), Firebase Authentication, Firestore and
 - `admin.js`, `admin.html`, `import.js`, `ocr.js`: the organiser page and screenshot import
 - `pickem.js`: the Pick'Em view
 - `home.js`, `matches.js`, `stats.js`, `profile.js`, `share.js`, `rules.js`, `market-extras.js`, `account.js`, `nav.js`: the tabs and extras
+- `manifest.json`, `sw.js`, `icons/`, `logo.jpg`: the installable app and the league logo
 - `data.js`: placeholder players used for the practice tournament and as the template for new ones
 
 ## Not built yet
 - Live in-match swaps (a big build, probably not worth it)
-- Reading bomb plants/defuses from screenshots (they're on the "More data" screen, not the Detail Report)
-- Deadlines are enforced in the browser only, not on the server
-
-
-## 2026 ruleset notes
-- Roles follow the ruleset's six weapon classes (AR, SMG, LMG, Shotgun, Marksman, Sniper). The default lineup limits follow a team's role pool: up to 3 AR, 3 SMG, 1 LMG, 1 Shotgun, 1 Marksman, 1 Sniper. Change them per tournament in the admin settings.
-- In a match's "+ Map" list, new maps default to the best-of-5 order: Hardpoint, Search & Destroy, Control, Hardpoint, Search & Destroy.
-- Two roles: in the admin Players table every player has a main role and an optional second role ("+ 2nd role"). A starting five is valid if each player can be given one of their roles so the limits hold. Cards show both (e.g. "AR / SMG"), and the role filter finds a player under either.
-- Map pools: each map in a match's list has a map picker with the ruleset pool for its mode (Hardpoint: Summit, Hacienda, Combine, Takeoff, Arsenal. S&D: Tunisia, Firing Range, Coastal, Slums, Meltdown. Control: Raid, Standoff, Crossroads Strike). The Matches tab shows it.
-- Score limits: type each map's score next to its map. Limits from the ruleset are checked (Hardpoint 250, Control 3, Search & Destroy 9, up to 20 in overtime) and ties are refused. When every map has a score, the series score is filled in for you, and Publish warns if the two disagree. The Matches tab shows each map's score.
+- Reading bomb plants and defuses from screenshots (needs a "More data" sample screenshot)
+- Deadlines are enforced in the browser only, not on the server. Squads of all stages live in one document, so the rules can't tell which stage was edited; fixing that means storing one document per stage (a bigger change)

@@ -34,14 +34,9 @@
     if (rankBusy || Date.now() - rankAt < 60000) return;
     rankBusy = true;
     window.Cloud.topScores(TID, 500).then(function (rows) {
-      const i = rows.findIndex(function (r) { return r.uid === me.uid; });
-      if (i < 0) {
-        rank = { pos: null, of: rows.length };
-      } else {
-        let pos = i;
-        while (pos > 0 && rows[pos - 1].total === rows[i].total) pos--;   // equal points share a rank
-        rank = { pos: pos + 1, of: rows.length };
-      }
+      const st = rankStandings(rows);
+      const i = st.rows.findIndex(function (r) { return r.uid === me.uid; });
+      rank = i < 0 ? { pos: null, of: rows.length } : { pos: st.ranks[i], of: rows.length };
     }).catch(function () {
       rank = null;
     }).then(function () {

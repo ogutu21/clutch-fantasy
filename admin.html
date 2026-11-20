@@ -64,6 +64,16 @@
         <button id="btn-publish-all">Publish &amp; update leaderboard</button>
         <a class="link" id="t-link" href="#" target="_blank">Open the tournament page</a>
       </div>
+      <div class="admin-actions">
+        <button id="btn-csv-board" class="outline">Download leaderboard (CSV)</button>
+        <button id="btn-csv-stage" class="outline">Download this stage's player results (CSV)</button>
+      </div>
+      <div class="admin-actions">
+        <button id="btn-backup" class="outline">Back up this tournament (JSON)</button>
+        <button id="btn-restore" class="outline">Restore setup from a backup...</button>
+        <input id="restore-file" type="file" accept="application/json,.json" style="display:none">
+      </div>
+      <p class="muted">A backup saves the players, stages, results and settings, plus every squad, leaderboard row and Pick'Em pick as they are now. Restoring puts back the players, stages, results and settings only (not squads) and asks you to confirm, then you press Publish.</p>
       <details class="admin-advanced">
         <summary>Advanced: do it in two steps</summary>
         <div class="admin-actions">

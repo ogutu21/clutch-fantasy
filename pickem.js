@@ -142,10 +142,9 @@
     const head = el("tr");
     ["#", "Player", "Right", "Points"].forEach(function (h) { head.appendChild(el("th", "", h)); });
     table.appendChild(head);
-    let rank = 0, prev = null;
-    board.forEach(function (row, i) {
-      if (row.total !== prev) rank = i + 1;
-      prev = row.total;
+    const st = rankPicks(board);
+    st.rows.forEach(function (row, i) {
+      const rank = st.ranks[i];
       const tr = el("tr");
       if (row.uid === user.uid) tr.className = "me";
       tr.appendChild(el("td", rank <= 3 ? "rank rank-" + rank : "rank", String(rank)));

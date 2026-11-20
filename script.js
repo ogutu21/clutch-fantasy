@@ -106,6 +106,51 @@ function squadIssues(sq) {
   return out;
 }
 
+// Pick'Em order: most points, then most correct picks, then name. Equal points and correct picks share a rank.
+function comparePick(a, b) {
+  if (b.total !== a.total) return b.total - a.total;
+  if ((b.correct || 0) !== (a.correct || 0)) return (b.correct || 0) - (a.correct || 0);
+  return String(a.name || "").localeCompare(String(b.name || ""));
+}
+function rankPicks(rows) {
+  const sorted = rows.slice().sort(comparePick);
+  const ranks = [];
+  sorted.forEach(function (row, i) {
+    const prev = sorted[i - 1];
+    ranks.push(i > 0 && prev.total === row.total && (prev.correct || 0) === (row.correct || 0) ? ranks[i - 1] : i + 1);
+  });
+  return { rows: sorted, ranks: ranks };
+}
+
+// Leaderboard order. Most points first. Ties are broken by points in the latest stage, then the one before, and so on.
+// Players still equal after that share a rank (see sameStanding).
+function compareStanding(a, b) {
+  if (b.total !== a.total) return b.total - a.total;
+  const ra = a.rounds || [], rb = b.rounds || [];
+  for (let i = Math.max(ra.length, rb.length) - 1; i >= 0; i--) {
+    const x = ra[i] || 0, y = rb[i] || 0;
+    if (y !== x) return y - x;
+  }
+  return String(a.name || "").localeCompare(String(b.name || ""));
+}
+function sameStanding(a, b) {
+  if (a.total !== b.total) return false;
+  const ra = a.rounds || [], rb = b.rounds || [];
+  for (let i = 0; i < Math.max(ra.length, rb.length); i++) {
+    if ((ra[i] || 0) !== (rb[i] || 0)) return false;
+  }
+  return true;
+}
+// Sorted copy of leaderboard rows, plus the rank of each (equal standings share one).
+function rankStandings(rows) {
+  const sorted = rows.slice().sort(compareStanding);
+  const ranks = [];
+  sorted.forEach(function (row, i) {
+    ranks.push(i > 0 && sameStanding(sorted[i - 1], row) ? ranks[i - 1] : i + 1);
+  });
+  return { rows: sorted, ranks: ranks };
+}
+
 // The roles a player can fill: their main role, plus an optional second one (the 2026 ruleset gives every player two).
 function rolesOf(p) {
   const out = [p.role];

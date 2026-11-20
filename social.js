@@ -85,6 +85,7 @@
     openCode = null;
     renderAuthBar();
     renderBoard();
+    if (!TID) renderSeason();
     if (!u || !TID || inPractice) return;
     try {
       if (tournamentReady && !(await tournamentReady)) return;
@@ -131,6 +132,53 @@
       box.appendChild(tournamentCard(t.name, t.status === "ended" ? "Ended" : "Open", t.status, "index.html?t=" + encodeURIComponent(t.id)));
     });
     box.appendChild(tournamentCard("Practice tournament", "Practice", "practice", "index.html?t=demo"));
+  }
+
+  // The season table on the home page: points from every tournament added together.
+  async function renderSeason() {
+    const box = $("season-box");
+    if (!box) return;
+    box.innerHTML = "";
+    if (cloudState !== "on" || !user) return;
+    box.appendChild(el("h2", "", "Season table"));
+    box.appendChild(el("p", "muted", "Your points from all tournaments added together. Ties go to whoever did better in the newest tournament."));
+    const body = el("div");
+    body.appendChild(el("p", "muted", "Loading..."));
+    box.appendChild(body);
+    try {
+      const raw = await cloud().seasonTable();
+      if (!user) return;
+      body.innerHTML = "";
+      if (!raw.length) { body.appendChild(el("p", "muted", "No scores yet.")); return; }
+      const st = rankStandings(raw.map(function (r) { return { uid: r.uid, name: r.name, total: Math.round(r.total * 10) / 10, rounds: r.rounds, tournaments: r.tournaments }; }));
+      const wrap = el("div", "table-wrap");
+      const table = el("table", "board");
+      const head = el("tr");
+      ["#", "Player", "Tournaments", "Total"].forEach(function (h) { head.appendChild(el("th", "", h)); });
+      table.appendChild(head);
+      st.rows.slice(0, 50).forEach(function (row, i) {
+        const tr = el("tr");
+        if (row.uid === user.uid) tr.className = "me";
+        tr.appendChild(el("td", st.ranks[i] <= 3 ? "rank rank-" + st.ranks[i] : "rank", String(st.ranks[i])));
+        const cell = el("td", "player-cell");
+        const inner = el("div", "pc-inner");
+        inner.appendChild(avatar(row.name, false, row.uid));
+        const nm = el("span", "pname", row.name);
+        nm.dataset.uname = row.uid;
+        inner.appendChild(nm);
+        cell.appendChild(inner);
+        tr.appendChild(cell);
+        tr.appendChild(el("td", "stage", String(row.tournaments)));
+        tr.appendChild(el("td", "total", row.total.toFixed(1)));
+        table.appendChild(tr);
+      });
+      wrap.appendChild(table);
+      body.appendChild(wrap);
+      Avatars.fetchProfiles(st.rows.slice(0, 50).map(function (r) { return r.uid; }));
+    } catch (e) {
+      body.innerHTML = "";
+      body.appendChild(el("p", "error", friendly(e)));
+    }
   }
 
   // ---- Top bar and sign-in dialog ---------------------------------------
@@ -274,15 +322,10 @@
     const box = el("div", "board-wrap");
     Avatars.fetchProfiles(rows.map(function (r) { return r.uid; }));
 
-    // Equal points share a rank.
-    const ranks = [];
-    let rank = 0;
-    let prevTotal = null;
-    rows.forEach(function (row, i) {
-      if (row.total !== prevTotal) rank = i + 1;
-      prevTotal = row.total;
-      ranks.push(rank);
-    });
+    // Most points first; ties are broken by the latest stage, then the stage before it, and so on.
+    const standing = rankStandings(rows);
+    rows = standing.rows;
+    const ranks = standing.ranks;
 
     // "You are #N" banner
     const mine = user ? rows.findIndex(function (r) { return r.uid === user.uid; }) : -1;

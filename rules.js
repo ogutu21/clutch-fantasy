@@ -58,6 +58,7 @@
       "Captain scores x2. If the captain doesn't play, the vice-captain gets it instead",
       "If a starter doesn't play, your sub steps in as long as the lineup stays valid",
       "Squads lock at each stage's deadline",
+      "Tie-break: players level on points are ordered by points in the latest stage, then the stage before it, and so on. Players still level after that share a rank",
     ].concat(TEAM_SLOT ? ["Team slot: also back one whole team each stage. " + fmt(SCORING.teamWin) + " if it wins its match, " + fmt(SCORING.teamMap) + " for each map it wins. Free to change every stage."] : []));
 
     section("Transfers and prices", [

@@ -1360,3 +1360,9 @@ button.danger:hover { background: #ff7a70; }
 .dash-alert-text { flex: 1; min-width: 0; font-size: 13px; }
 .dash-alert-text b { display: block; margin-bottom: 2px; }
 .dash-alert button { flex: none; }
+
+/* Home page logo */
+.home-logo { display: block; width: min(360px, 80%); height: auto; margin: 6px auto 10px; border-radius: 16px; box-shadow: 0 0 30px rgba(34, 229, 255, 0.25); }
+
+.install-box { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 4px 0 12px; }
+.install-box button { margin: 0; }

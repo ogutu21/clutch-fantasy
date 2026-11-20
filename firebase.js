@@ -311,6 +311,34 @@ if (!configured) {
       });
     },
 
+    // Season table: every player's points added up over all tournaments.
+    // Returns [{ uid, name, total, rounds: [points in each tournament, oldest first], tournaments }] (so the newest tournament breaks ties).
+    seasonTable: async function () {
+      needUser();
+      const tsnap = await getDocs(collection(db, "tournaments"));
+      const ts = tsnap.docs.map(function (d) { return { id: d.id, createdAt: d.data().createdAt }; });
+      ts.sort(function (a, b) {
+        const x = a.createdAt && a.createdAt.seconds ? a.createdAt.seconds : 0;
+        const y = b.createdAt && b.createdAt.seconds ? b.createdAt.seconds : 0;
+        return y - x;
+      });
+      const byUid = {};
+      const used = ts.slice(0, 20);
+      for (let i = 0; i < used.length; i++) {
+        const q = query(collection(db, "tournaments", used[i].id, "scores"), orderBy("total", "desc"), limit(500));
+        const snap = await getDocs(q);
+        snap.docs.forEach(function (d) {
+          const r = byUid[d.id] || (byUid[d.id] = { uid: d.id, name: d.data().name, total: 0, rounds: used.map(function () { return 0; }), tournaments: 0 });
+          const t = Number(d.data().total) || 0;
+          r.total += t;
+          r.rounds[i] = t;
+          r.tournaments++;
+          r.name = d.data().name || r.name;
+        });
+      }
+      return Object.keys(byUid).map(function (k) { const r = byUid[k]; r.rounds.reverse(); return r; });
+    },
+
     // Delete a tournament completely: its squads, leaderboard rows, mini-leagues, then the tournament itself.
     // Needs the organiser rules from firestore.rules. Returns how many documents were removed.
     deleteTournament: async function (tid) {

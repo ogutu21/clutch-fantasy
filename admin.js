@@ -169,6 +169,8 @@
       dirty = false;
       priceAtLoad = {};
       players.forEach(function (p) { priceAtLoad[p.id] = p.price; });
+      setOwnership(null);
+      try { if (window.Cloud.loadOwnership) setOwnership(await window.Cloud.loadOwnership(id)); } catch (e) { /* not published yet */ }
       note("");
       showPanel();
       updateBar();
@@ -296,7 +298,26 @@
 
   // The best fifth of the players who played go up 1.0, the next fifth 0.5, the middle fifth stay,
   // then down 0.5, and the bottom fifth down 1.0. Prices stay between 3.0 and 15.0.
+  let priceMode = "performance";   // "performance" or "demand"
+
+  // Demand mode: the fifth of players owned by the most squads goes up 1.0 ... the least owned fifth goes down 1.0.
+  function demandProposals(r) {
+    if (!OWNERSHIP) return null;
+    const list = players.map(function (p) {
+      const o = ownershipOf(p.id, r);
+      return { p: p, pts: o === null ? 0 : o, own: o };
+    }).filter(function (x) { return x.own !== null; }).sort(function (a, b) { return b.own - a.own; });
+    if (list.length < 5) return null;
+    return list.map(function (x, i) {
+      const q = i / list.length;
+      const d = q < 0.2 ? 1 : q < 0.4 ? 0.5 : q < 0.6 ? 0 : q < 0.8 ? -0.5 : -1;
+      const to = Math.min(PRICE_MAX, Math.max(PRICE_MIN, Math.round((x.p.price + d) * 2) / 2));
+      return { p: x.p, pts: x.own, from: x.p.price, to: to, own: true };
+    });
+  }
+
   function priceProposals(r) {
+    if (priceMode === "demand") return demandProposals(r);
     const round = rounds[r];
     const played = players.filter(function (p) { return round.stats[p.id]; }).map(function (p) {
       return { p: p, pts: rawPoints(p.id, r) };
@@ -321,9 +342,27 @@
     }
     dlg.innerHTML = "";
     dlg.appendChild(el("h3", "", "Update prices"));
+    const modeRow = el("div", "admin-row");
+    modeRow.appendChild(el("label", "", "Based on"));
+    const modeSel = el("select");
+    [["performance", "Performance (points in this stage)"], ["demand", "Demand (how many squads own the player)"]].forEach(function (m) {
+      const o = el("option", "", m[1]); o.value = m[0]; modeSel.appendChild(o);
+    });
+    modeSel.value = priceMode;
+    modeSel.addEventListener("change", function () { priceMode = modeSel.value; openPriceUpdate(); });
+    modeRow.appendChild(modeSel);
+    dlg.appendChild(modeRow);
     const close = function () { if (dlg.close) dlg.close(); else dlg.removeAttribute("open"); };
 
-    if (!plan) {
+    if (!plan && priceMode === "demand") {
+      dlg.appendChild(el("p", "muted", "Ownership isn't known yet. Press Publish & update leaderboard first: that counts how many squads own each player. Then come back here."));
+      const actions = el("div", "dialog-actions");
+      const ok = el("button", "", "OK");
+      ok.type = "button";
+      ok.addEventListener("click", close);
+      actions.appendChild(ok);
+      dlg.appendChild(actions);
+    } else if (!plan) {
       dlg.appendChild(el("p", "muted", "Enter results for at least 5 players in " + round.name + " first. Prices are worked out from how each player scored in the stage that is open."));
       const actions = el("div", "dialog-actions");
       const ok = el("button", "", "OK");
@@ -332,17 +371,19 @@
       actions.appendChild(ok);
       dlg.appendChild(actions);
     } else {
-      dlg.appendChild(el("p", "muted", "Based on how each player scored in " + round.name + ": the best fifth go up 1.0, the next fifth up 0.5, the middle fifth stay, then down 0.5, and the bottom fifth down 1.0 (between " + PRICE_MIN.toFixed(1) + " and " + PRICE_MAX.toFixed(1) + "). Players who didn't play stay the same."));
+      dlg.appendChild(el("p", "muted", priceMode === "demand"
+        ? "Based on how many squads own each player in " + round.name + ": the most owned fifth go up 1.0, the next fifth up 0.5, the middle fifth stay, then down 0.5, and the least owned fifth down 1.0 (between " + PRICE_MIN.toFixed(1) + " and " + PRICE_MAX.toFixed(1) + "). Popular players get dearer, overlooked ones cheaper."
+        : "Based on how each player scored in " + round.name + ": the best fifth go up 1.0, the next fifth up 0.5, the middle fifth stay, then down 0.5, and the bottom fifth down 1.0 (between " + PRICE_MIN.toFixed(1) + " and " + PRICE_MAX.toFixed(1) + "). Players who didn't play stay the same."));
       const wrap = el("div", "table-wrap");
       const table = el("table", "pstats");
       const hr = el("tr");
-      ["Player", "Pts", "Price"].forEach(function (h) { hr.appendChild(el("th", "", h)); });
+      ["Player", priceMode === "demand" ? "Owned" : "Pts", "Price"].forEach(function (h) { hr.appendChild(el("th", "", h)); });
       table.appendChild(hr);
       let changes = 0;
       plan.forEach(function (x) {
         const tr = el("tr");
         tr.appendChild(el("td", "", x.p.name));
-        tr.appendChild(el("td", "", x.pts.toFixed(1)));
+        tr.appendChild(el("td", "", x.own ? Math.round(x.pts) + "%" : x.pts.toFixed(1)));
         const change = x.to - x.from;
         if (change) changes++;
         tr.appendChild(el("td", change > 0 ? "pc-up" : change < 0 ? "pc-down" : "", x.from.toFixed(1) + " \u2192 " + x.to.toFixed(1)));
@@ -515,6 +556,124 @@
   }
 
   // ---- Stages, matches and stats ----------------------------------------
+
+  // ---- CSV downloads ---------------------------------------------------------
+
+  function csvCell(v) {
+    const t = v === null || v === undefined ? "" : String(v);
+    return /[",\n\r]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t;
+  }
+  function downloadCsv(filename, table) {
+    const text = "\ufeff" + table.map(function (row) { return row.map(csvCell).join(","); }).join("\r\n") + "\r\n";   // BOM so Excel reads accents
+    const url = URL.createObjectURL(new Blob([text], { type: "text/csv;charset=utf-8" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+  }
+  function safeName(s) { return String(s || "tournament").replace(/[^A-Za-z0-9_-]+/g, "_").replace(/^_+|_+$/g, "") || "tournament"; }
+
+  async function exportBoard() {
+    try {
+      const raw = await window.Cloud.topScores(tid, 2000);
+      let names = {};
+      try { names = (await window.Cloud.loadProfiles(raw.map(function (r) { return r.uid; }))) || {}; } catch (e) { /* usernames are optional */ }
+      const st = rankStandings(raw);
+      const head = ["Rank", "Player", "Total"].concat(rounds.map(function (r) { return r.name; }));
+      const body = st.rows.map(function (row, i) {
+        const nm = (names[row.uid] && names[row.uid].username) || row.name;
+        return [st.ranks[i], nm, row.total].concat(rounds.map(function (_, r) { return (row.rounds || [])[r] !== undefined ? row.rounds[r] : ""; }));
+      });
+      downloadCsv(safeName($("t-name").value) + "_leaderboard.csv", [head].concat(body));
+      note("Leaderboard downloaded (" + body.length + " players).");
+    } catch (e) {
+      note("Couldn't download the leaderboard: " + (e.message || e), true);
+    }
+  }
+
+  function exportStage() {
+    const round = rounds[selectedRound];
+    if (!round) return;
+    const head = ["Player", "Team", "Role", "Kills", "Deaths", "Assists", "S&D kills", "Hill seconds", "Plants", "Defuses", "MVP", "Points (before captain)"];
+    const body = [];
+    players.forEach(function (p) {
+      const s = round.stats[p.id];
+      if (!s) return;
+      const pts = calcPoints(s, teamWonInRound(p.team, round), seriesScale(p.team, round), mapsWonBy(p.team, round));
+      body.push([p.name, p.team, roleText(p), s.kills || 0, s.deaths || 0, s.assists || 0, s.sndKills || 0, s.hillTime || 0, s.plants || 0, s.defuses || 0, s.mvp ? "yes" : "", Math.round(pts * 10) / 10]);
+    });
+    downloadCsv(safeName($("t-name").value) + "_" + safeName(round.name) + "_players.csv", [head].concat(body));
+    note("Downloaded " + body.length + " player result(s) for " + round.name + " (publish first if you just entered them).");
+  }
+
+  // ---- Backup and restore ------------------------------------------------------
+
+  function setupSnapshot() {
+    return {
+      players: JSON.parse(JSON.stringify(players)),
+      rounds: JSON.parse(JSON.stringify(rounds)),
+      settings: Object.assign({}, settings, {
+        budget: settings.budget, standardMaps: STANDARD_MAPS, format: FORMAT,
+        lineup: JSON.parse(JSON.stringify(LINEUP)), scoring: Object.assign({}, SCORING),
+      }),
+    };
+  }
+
+  async function backupTournament() {
+    if (!tid) return;
+    try {
+      note("Collecting everything for the backup...");
+      const out = { app: "clutch-fantasy", version: 1, exportedAt: new Date().toISOString(), tournamentId: tid,
+        name: $("t-name").value.trim() || meta.name, status: $("t-status").value, data: setupSnapshot(),
+        squads: [], scores: [], picks: [], pickscores: [] };
+      const C = window.Cloud;
+      out.squads = (await C.allSquads(tid)).map(function (s) { return { uid: s.uid, name: s.name, json: s.json }; });
+      out.scores = await C.topScores(tid, 5000);
+      if (C.allPicks) out.picks = (await C.allPicks(tid)).map(function (s) { return { uid: s.uid, name: s.name, json: s.json }; });
+      if (C.topPickScores) out.pickscores = await C.topPickScores(tid, 5000);
+      const url = URL.createObjectURL(new Blob([JSON.stringify(out)], { type: "application/json" }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = safeName(out.name) + "_backup_" + new Date().toISOString().slice(0, 10) + ".json";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+      note("Backup downloaded: " + out.squads.length + " squad(s), " + out.scores.length + " leaderboard row(s), " + out.picks.length + " Pick'Em set(s). Keep the file somewhere safe.");
+    } catch (e) {
+      note("Couldn't make the backup: " + (e.message || e), true);
+    }
+  }
+
+  function restoreFromFile(file) {
+    if (!tid || !file) return;
+    const reader = new FileReader();
+    reader.onload = function () {
+      let j = null;
+      try { j = JSON.parse(String(reader.result)); } catch (e) { /* handled below */ }
+      if (!j || j.app !== "clutch-fantasy" || !j.data || !Array.isArray(j.data.players) || !Array.isArray(j.data.rounds)) {
+        note("That doesn't look like a Clutch Fantasy backup.", true);
+        return;
+      }
+      if (!confirm("Replace the players, stages, results and settings of \"" + meta.name + "\" with the backup from " + String(j.exportedAt || "").slice(0, 10) + " (\"" + j.name + "\")? Squads are not touched. Nothing changes online until you press Publish.")) return;
+      const backup = { players: players.slice(), rounds: rounds.slice(), settings: settings };
+      if (!applyTournament(JSON.parse(JSON.stringify(j.data)))) {
+        players.splice(0, players.length, ...backup.players);
+        rounds.splice(0, rounds.length, ...backup.rounds);
+        note("The backup's data looks broken, so nothing was changed.", true);
+        return;
+      }
+      settings = Object.assign({ budget: 48 }, j.data.settings || {});
+      selectedRound = 0;
+      showPanel();
+      markDirty();
+      note("Backup loaded here. Check it, then press Publish & update.");
+    };
+    reader.readAsText(file);
+  }
 
   // ---- Squads not ready ------------------------------------------------------
 
@@ -1199,6 +1358,7 @@
       }
 
       await window.Cloud.writeScores(tid, rows);
+      setOwnership(own);
       try { if (window.Cloud.writeOwnership) await window.Cloud.writeOwnership(tid, own); } catch (e) { console.warn("Ownership not written:", e); }
 
       // Pick'Em: score everyone's predictions too. A failure here (for example the new rules aren't deployed yet) doesn't stop the main leaderboard.
@@ -1306,6 +1466,15 @@
     renderLibrary();
     window.addEventListener("avatars-ready", function () { renderLibrary(); if (tid) renderPlayers(); });
     $("rd-check").addEventListener("click", checkReadiness);
+    $("btn-csv-board").addEventListener("click", exportBoard);
+    $("btn-csv-stage").addEventListener("click", exportStage);
+    $("btn-backup").addEventListener("click", backupTournament);
+    $("btn-restore").addEventListener("click", function () { $("restore-file").click(); });
+    $("restore-file").addEventListener("change", function () {
+      const f = $("restore-file").files && $("restore-file").files[0];
+      $("restore-file").value = "";
+      restoreFromFile(f);
+    });
     $("lib-file").addEventListener("change", function () {
       const files = Array.prototype.slice.call($("lib-file").files || []);
       $("lib-file").value = "";
