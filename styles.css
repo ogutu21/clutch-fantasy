@@ -1353,3 +1353,10 @@ button.danger:hover { background: #ff7a70; }
 .avatar.has-pic { background: none; padding: 0; overflow: hidden; }
 .avatar.has-pic img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block; }
 .ac-change { margin: 6px 0 0; font-size: 12px; padding: 4px 10px; }
+
+/* Home: squad-not-ready banner */
+.dash-alert { display: flex; align-items: center; gap: 12px; justify-content: space-between; margin: 10px 0; padding: 12px 14px; border: 1px solid #ffb02e; background: rgba(255, 176, 46, 0.1); border-radius: 10px; }
+.dash-alert.urgent { border-color: #ff4d6d; background: rgba(255, 77, 109, 0.12); }
+.dash-alert-text { flex: 1; min-width: 0; font-size: 13px; }
+.dash-alert-text b { display: block; margin-bottom: 2px; }
+.dash-alert button { flex: none; }

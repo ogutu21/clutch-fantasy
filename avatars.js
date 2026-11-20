@@ -45,6 +45,7 @@
 
   // ---- Players' own pictures (Firestore "profiles/<uid>") ----
   const profiles = {};      // uid -> look
+  const names = {};         // uid -> chosen username
   const asked = {};         // uids already requested
   function initialsOf(name) {
     const parts = String(name || "?").trim().split(/\s+/);
@@ -65,7 +66,7 @@
       img.alt = name || "";
       b.appendChild(img);
     } else {
-      b.textContent = initialsOf(name);
+      b.textContent = initialsOf((uid && names[uid]) || name);
     }
     return b;
   }
@@ -77,6 +78,10 @@
       n.className = fresh.className;
       n.innerHTML = fresh.innerHTML;
     });
+    document.querySelectorAll("[data-uname]").forEach(function (n) {
+      const u = n.getAttribute("data-uname");
+      if (u && names[u]) n.textContent = names[u];
+    });
   }
   async function fetchProfiles(uids) {
     if (!window.Cloud || !window.Cloud.loadProfiles) return;
@@ -85,7 +90,10 @@
     need.forEach(function (u) { asked[u] = true; });
     try {
       const got = await window.Cloud.loadProfiles(need);
-      Object.keys(got || {}).forEach(function (u) { profiles[u] = got[u]; });
+      Object.keys(got || {}).forEach(function (u) {
+        if (got[u].avatar) profiles[u] = got[u].avatar;
+        if (got[u].username) names[u] = got[u].username;
+      });
       refreshUserEls();
     } catch (e) { need.forEach(function (u) { delete asked[u]; }); }
   }
@@ -96,6 +104,7 @@
     asked[uid] = true;
     refreshUserEls();
   }
+  function setMyName(uid, name) { names[uid] = name; asked[uid] = true; refreshUserEls(); }
   window.addEventListener("avatars-ready", refreshUserEls);
 
   // An element showing the look, a photo, or initials. label is used for the initials and the alt text.
@@ -273,7 +282,7 @@
 
   const Avatars = {
     make: make, pick: pick, fromFile: fromFile, addToLibrary: addToLibrary, removeFromLibrary: removeFromLibrary,
-    srcOf: srcOf, userEl: userEl, fetchProfiles: fetchProfiles, saveMyPicture: saveMyPicture, profileOf: function (uid) { return profiles[uid] || ""; },
+    srcOf: srcOf, userEl: userEl, fetchProfiles: fetchProfiles, saveMyPicture: saveMyPicture, profileOf: function (uid) { return profiles[uid] || ""; }, nameOf: function (uid) { return names[uid] || ""; }, setMyName: setMyName,
     libraryItems: function () { return cloudOrder.map(function (id) { return cloudLib[id]; }); }, reload: loadCloud,
   };
   window.Avatars = Avatars;

@@ -42,8 +42,26 @@
     const head = el("div", "ac-head");
     head.appendChild(Avatars.userEl(me.name, me.uid, true));
     const titles = el("div");
-    titles.appendChild(el("div", "ac-name", me.name));
+    titles.appendChild(el("div", "ac-name", Avatars.nameOf(me.uid) || me.name));
     titles.appendChild(el("div", "ac-sub", tournamentInfo ? tournamentInfo.name : "Practice tournament"));
+    if (window.Cloud && window.Cloud.setUsername) {
+      const un = el("button", "outline ac-change", Avatars.nameOf(me.uid) ? "Change username" : "Set username");
+      un.type = "button";
+      un.addEventListener("click", function () {
+        const input = window.prompt("Choose a username (3 to 20 letters, numbers or underscores). It is shown on the leaderboard.", Avatars.nameOf(me.uid) || "");
+        if (input === null) return;
+        const bad = window.Cloud.checkUsername(input);
+        if (bad) { alert(bad); return; }
+        window.Cloud.setUsername(input.trim()).then(function (name) {
+          me.name = name;
+          Avatars.setMyName(me.uid, name);
+          window.dispatchEvent(new CustomEvent("username-changed", { detail: name }));
+          build();
+          if (typeof window.renderHome === "function") window.renderHome();
+        }).catch(function (e) { alert((e && e.message) || "Couldn't save that username."); });
+      });
+      titles.appendChild(un);
+    }
     if (isRealTournament() && window.Cloud && window.Cloud.saveProfile) {
       const change = el("button", "outline ac-change", "Change picture");
       change.type = "button";
@@ -151,9 +169,11 @@
     const card = el("div", "ac-card");
     card.tabIndex = 0;
     card.setAttribute("role", "button");
-    card.appendChild(Avatars.userEl(me.name, me.uid, false));
+    card.appendChild(Avatars.userEl(Avatars.nameOf(me.uid) || me.name, me.uid, false));
     const text = el("div", "ac-card-text");
-    text.appendChild(el("div", "ac-card-name", me.name));
+    const cn = el("div", "ac-card-name", Avatars.nameOf(me.uid) || me.name);
+    cn.setAttribute("data-uname", me.uid);
+    text.appendChild(cn);
     text.appendChild(el("div", "ac-card-sub", "View profile and scoring history"));
     card.appendChild(text);
     card.appendChild(el("span", "ac-chev", "\u203A"));

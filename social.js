@@ -71,6 +71,11 @@
     }, 1500);
   }
 
+  // The player picked a new username: use it from now on, and save it with the squad so the leaderboard picks it up.
+  window.addEventListener("username-changed", function (e) {
+    if (user && e.detail) { user.name = e.detail; schedulePush(); }
+  });
+
   window.afterSave = schedulePush;   // script.js calls this after every save()
 
   async function handleAuth(u) {
@@ -138,7 +143,7 @@
       return;
     }
     if (user) {
-      bar.appendChild(el("span", "muted", user.name));
+      bar.appendChild(el("span", "muted", Avatars.nameOf(user.uid) || user.name));
       const out = el("button", "", "Sign out");
       out.addEventListener("click", function () { cloud().logOut(); });
       bar.appendChild(out);
@@ -195,7 +200,7 @@
       const password = $("auth-password").value;
       const name = $("auth-name").value.trim();
       if (signUpMode) {
-        if (!name) { $("auth-error").textContent = "Pick a display name for the leaderboard."; return; }
+        if (!name) { $("auth-error").textContent = "Pick a username for the leaderboard."; return; }
         runAuth(function () { return cloud().signUp(name, email, password); });
       } else {
         runAuth(function () { return cloud().signIn(email, password); });
@@ -254,7 +259,9 @@
       const row = rows[i];
       const col = el("div", "podium-col place-" + (i + 1) + (user && row.uid === user.uid ? " me" : ""));
       col.appendChild(avatar(row.name, true, row.uid));
-      col.appendChild(el("div", "podium-name", row.name));
+      const pnm = el("div", "podium-name", Avatars.nameOf(row.uid) || row.name);
+      pnm.setAttribute("data-uname", row.uid);
+      col.appendChild(pnm);
       col.appendChild(el("div", "podium-pts", row.total.toFixed(1)));
       col.appendChild(el("div", "podium-step", String(ranks[i])));
       podium.appendChild(col);
@@ -314,7 +321,9 @@
       const nameCell = el("td", "player-cell");
       const inner = el("div", "pc-inner");
       inner.appendChild(avatar(row.name, false, row.uid));
-      inner.appendChild(el("span", "pname", row.name));
+      const pn = el("span", "pname", Avatars.nameOf(row.uid) || row.name);
+      pn.setAttribute("data-uname", row.uid);
+      inner.appendChild(pn);
       if (isMe) inner.appendChild(el("span", "you-tag", "YOU"));
       nameCell.appendChild(inner);
       tr.appendChild(nameCell);

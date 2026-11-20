@@ -24,6 +24,47 @@ if (!configured) {
   const db = getFirestore(app);
   const listeners = [];
 
+  const RESERVED = ["admin", "administrator", "organiser", "organizer", "moderator", "mod", "support", "clutch", "clutchfantasy", "staff", "official"];
+
+  // Returns a message if the username isn't allowed, or null if it is.
+  function checkUsername(name) {
+    const n = String(name || "").trim();
+    if (!/^[A-Za-z0-9_]{3,20}$/.test(n)) return "A username is 3 to 20 letters, numbers or underscores (no spaces).";
+    if (RESERVED.indexOf(n.toLowerCase()) !== -1) return "That username is reserved. Try another one.";
+    return null;
+  }
+
+  async function isUsernameFree(name) {
+    const snap = await getDoc(doc(db, "usernames", String(name).trim().toLowerCase()));
+    if (!snap.exists()) return true;
+    return !!(auth.currentUser && snap.data().uid === auth.currentUser.uid);
+  }
+
+  // Claim a username for the signed-in player and release their old one.
+  async function setUsername(name) {
+    const u = auth.currentUser;
+    if (!u) throw new Error("Please sign in first");
+    const n = String(name).trim();
+    const problem = checkUsername(n);
+    if (problem) throw new Error(problem);
+    if (!(await isUsernameFree(n))) throw new Error("That username is taken. Try another one.");
+    const key = n.toLowerCase();
+    const mine = await getDoc(doc(db, "profiles", u.uid));
+    const oldName = mine.exists() ? mine.data().username : null;
+    const batch = writeBatch(db);
+    batch.set(doc(db, "usernames", key), { uid: u.uid, createdAt: serverTimestamp() });
+    batch.set(doc(db, "profiles", u.uid), { username: n, updatedAt: serverTimestamp() }, { merge: true });
+    if (oldName && oldName.toLowerCase() !== key) batch.delete(doc(db, "usernames", oldName.toLowerCase()));
+    try {
+      await batch.commit();
+    } catch (e) {
+      if (e && e.code === "permission-denied") throw new Error("Couldn't save that username (it may have just been taken).");
+      throw e;
+    }
+    await updateProfile(u, { displayName: n });
+    return n;
+  }
+
   function currentUser() {
     const u = auth.currentUser;
     if (!u) return null;
@@ -63,9 +104,19 @@ if (!configured) {
       }
     },
 
+    // Usernames: 3-20 letters, numbers or underscores, unique (not case sensitive).
+    checkUsername: checkUsername,
+    isUsernameFree: isUsernameFree,
+    setUsername: setUsername,
+
     signUp: async function (name, email, password) {
+      // Check the username before creating the account, so a taken name doesn't leave a half-made account.
+      const problem = checkUsername(name);
+      if (problem) throw new Error(problem);
+      if (!(await isUsernameFree(name))) throw new Error("That username is taken. Try another one.");
       const cred = await createUserWithEmailAndPassword(auth, email, password);
       await updateProfile(cred.user, { displayName: name });
+      try { await setUsername(name); } catch (e) { /* the account exists; they can set the username again from the profile */ }
       emit();   // the name was set after the first auth event, so tell the app again
     },
 
@@ -165,13 +216,13 @@ if (!configured) {
       for (let i = 0; i < uids.length; i += MAX_LEAGUE_SIZE) {
         const chunk = uids.slice(i, i + MAX_LEAGUE_SIZE);
         const snap = await getDocs(query(collection(db, "profiles"), where(documentId(), "in", chunk)));
-        snap.forEach(function (d) { if (d.data().avatar) out[d.id] = d.data().avatar; });
+        snap.forEach(function (d) { out[d.id] = { avatar: d.data().avatar || "", username: d.data().username || "" }; });
       }
       return out;
     },
     saveProfile: async function (avatar) {
       const u = needUser();
-      await setDoc(doc(db, "profiles", u.uid), { avatar: String(avatar || ""), updatedAt: serverTimestamp() });
+      await setDoc(doc(db, "profiles", u.uid), { avatar: String(avatar || ""), updatedAt: serverTimestamp() }, { merge: true });
     },
 
     // Shared picture library (small resized pictures; only the organiser can add or remove).
