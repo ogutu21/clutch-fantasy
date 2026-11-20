@@ -516,7 +516,70 @@
 
   // ---- Stages, matches and stats ----------------------------------------
 
+  // ---- Squads not ready ------------------------------------------------------
+
+  function fillReadinessStages() {
+    const sel = $("rd-stage");
+    if (!sel) return;
+    const keep = sel.value;
+    sel.innerHTML = "";
+    rounds.forEach(function (r, i) {
+      const o = el("option", "", r.name + (isLocked(i) ? " (locked)" : ""));
+      o.value = String(i);
+      sel.appendChild(o);
+    });
+    let pick = rounds.findIndex(function (_, i) { return !isLocked(i); });
+    if (keep !== "" && keep !== undefined && rounds[Number(keep)]) pick = Number(keep);
+    sel.value = String(pick < 0 ? 0 : pick);
+  }
+
+  async function checkReadiness() {
+    const out = $("rd-out"), noteEl = $("rd-note");
+    out.innerHTML = "";
+    $("rd-copy").style.display = "none";
+    const r = Number($("rd-stage").value);
+    noteEl.textContent = "Loading...";
+    try {
+      const all = await window.Cloud.allSquads(tid);
+      let names = {};
+      try { names = (await window.Cloud.loadProfiles(all.map(function (s) { return s.uid; }))) || {}; } catch (e) { /* usernames are optional */ }
+      const notReady = [];
+      let ready = 0;
+      all.forEach(function (s) {
+        let saved = null;
+        try { saved = JSON.parse(s.json); } catch (e) { /* counted as not ready below */ }
+        const sq = saved && saved[r] ? saved[r] : null;
+        const issues = sq ? squadIssues(sq) : ["no squad picked"];
+        const nm = (names[s.uid] && names[s.uid].username) || s.name || s.uid;
+        if (issues.length) notReady.push({ name: nm, issues: issues }); else ready++;
+      });
+      noteEl.textContent = ready + " of " + all.length + " saved squads are ready for " + rounds[r].name + ".";
+      if (!notReady.length) { out.appendChild(el("p", "muted", "Everyone who has saved a squad is ready.")); return; }
+      const table = el("table", "admin");
+      const head = el("tr");
+      ["Player", "What is missing"].forEach(function (h) { head.appendChild(el("th", "", h)); });
+      table.appendChild(head);
+      notReady.forEach(function (x) {
+        const tr = el("tr");
+        tr.appendChild(el("td", "", x.name));
+        tr.appendChild(el("td", "", x.issues.join(" \u00b7 ")));
+        table.appendChild(tr);
+      });
+      out.appendChild(table);
+      const copy = $("rd-copy");
+      copy.style.display = "";
+      copy.onclick = function () {
+        const text = notReady.map(function (x) { return x.name; }).join(", ");
+        if (navigator.clipboard) navigator.clipboard.writeText(text).then(function () { noteEl.textContent = "Copied " + notReady.length + " names."; });
+        else window.prompt("Copy these names:", text);
+      };
+    } catch (e) {
+      noteEl.textContent = "Couldn't load squads: " + (e.message || e);
+    }
+  }
+
   function renderRoundTabs() {
+    fillReadinessStages();
     const box = $("admin-rounds");
     box.innerHTML = "";
     rounds.forEach(function (r, i) {
@@ -1242,6 +1305,7 @@
   function setupLibrary() {
     renderLibrary();
     window.addEventListener("avatars-ready", function () { renderLibrary(); if (tid) renderPlayers(); });
+    $("rd-check").addEventListener("click", checkReadiness);
     $("lib-file").addEventListener("change", function () {
       const files = Array.prototype.slice.call($("lib-file").files || []);
       $("lib-file").value = "";

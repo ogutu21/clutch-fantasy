@@ -90,6 +90,22 @@ function seriesFromGames(m) {
   return { a: a, b: b };
 }
 
+// What is missing from a squad (used by the Home banner, the leave-page check and the organiser's list).
+// Returns a list of short phrases; empty means the squad is ready. Budget is checked separately, since it depends on the stage being open.
+function squadIssues(sq) {
+  const out = [];
+  if (!sq || !Array.isArray(sq.players) || sq.players.length === 0) return ["no squad picked"];
+  if (sq.players.length < SQUAD_SIZE) {
+    out.push(sq.players.length + " of " + SQUAD_SIZE + " players picked");
+  } else if (!sq.sub || sq.players.indexOf(sq.sub) === -1) {
+    out.push("no sub picked");
+  } else if (!isValidStarting(startersOf(sq))) {
+    out.push("starting five breaks the lineup rules (" + lineupText() + ")");
+  }
+  if (TEAM_SLOT && !sq.team) out.push("no Team slot picked");
+  return out;
+}
+
 // The roles a player can fill: their main role, plus an optional second one (the 2026 ruleset gives every player two).
 function rolesOf(p) {
   const out = [p.role];

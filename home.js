@@ -59,6 +59,43 @@
     return t;
   }
 
+  // What is missing from a squad: a list of short phrases, empty if it is ready.
+  function squadProblems(sq) {
+    const out = squadIssues(sq);
+    if (budgetLeft() < 0) out.push("over budget");
+    return out;
+  }
+
+  // A banner at the top of Home when the squad for the open stage isn't ready (or locked while not ready).
+  function readinessBanner(sq) {
+    const problems = squadProblems(sq);
+    if (!problems.length) return null;
+    const round = rounds[currentRound];
+    const locked = isLocked(currentRound);
+    const box = el("div", "dash-alert");
+    let left = null;
+    if (!locked && round.lockAt) left = Date.parse(round.lockAt) - Date.now();
+    if (!locked && left !== null && left < 24 * 3600 * 1000) box.classList.add("urgent");
+    const text = el("div", "dash-alert-text");
+    text.appendChild(el("b", "", locked
+      ? round.name + " is locked and your squad wasn't ready"
+      : "Your squad for " + round.name + " isn't ready"));
+    text.appendChild(el("div", "", problems.join(" \u00b7 ") + (locked
+      ? ". It scores with the players you have."
+      : (left !== null ? " \u00b7 locks in " + timeLeftText(Math.max(0, left)) : ""))));
+    box.appendChild(text);
+    if (!locked) {
+      const go = el("button", "", sq.players.length < SQUAD_SIZE ? "Open the market" : "Fix your squad");
+      go.type = "button";
+      go.addEventListener("click", function () {
+        const b = document.querySelector('#tabbar [data-tab="' + (sq.players.length < SQUAD_SIZE ? "market" : "squad") + '"]');
+        if (b) b.click();
+      });
+      box.appendChild(go);
+    }
+    return box;
+  }
+
   function draw(box) {
     box.innerHTML = "";
     const sq = currentSquad();
@@ -72,6 +109,9 @@
       greet.textContent = "Playing as a guest. Sign in to save your squad and join the leaderboard.";
     }
     box.appendChild(greet);
+
+    const alertBox = readinessBanner(sq);
+    if (alertBox) box.appendChild(alertBox);
 
     // Hero tiles
     let rankText = "-";
@@ -160,6 +200,30 @@
     }
   }
   window.renderHome = renderHome;
+
+  // Leaving with a squad that isn't ready, before the stage locks: ask first.
+  function leavingProblems() {
+    if (!isRealTournament() || !me || isLocked(currentRound)) return null;
+    const r = rounds[currentRound];
+    if (!r.lockAt) return null;
+    const p = squadProblems(currentSquad());
+    return p.length ? p : null;
+  }
+  window.addEventListener("beforeunload", function (e) {
+    if (!leavingProblems()) return;
+    e.preventDefault();
+    e.returnValue = "";   // the browser shows its own "leave site?" message
+  });
+  document.addEventListener("click", function (e) {
+    const a = e.target.closest && e.target.closest("a.link");
+    if (!a || a.target === "_blank") return;
+    const p = leavingProblems();
+    if (!p) return;
+    const left = Date.parse(rounds[currentRound].lockAt) - Date.now();
+    if (!confirm("Your squad for " + rounds[currentRound].name + " isn't ready (" + p.join(", ") + "). It locks in " + timeLeftText(Math.max(0, left)) + ".\n\nLeave anyway?")) {
+      e.preventDefault();
+    }
+  });
 
   window.addEventListener("load", function () {
     if (window.Cloud) {
