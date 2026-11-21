@@ -39,3 +39,5 @@ Do this once on the real site before inviting everyone. Use a throwaway tourname
 - Admin: Back up this tournament downloads a .json; restoring it into a throwaway tournament fills the players and stages (then Publish).
 - Admin: Update prices > Based on Demand works after one Publish.
 - Phone: open the site in Chrome, menu > Add to Home Screen / Install app.
+- League chat: with two accounts in one mini-league, send a message from each; both appear within a second; delete one; the person who is not in the league can't see it.
+- Playoffs: add the double-elimination stages with 4 teams, enter the two UB semifinal scores, Publish, and check the UB Final and LB Semifinal appear and the Playoffs tab shows them.

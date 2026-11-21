@@ -80,6 +80,7 @@
 
   async function handleAuth(u) {
     user = u;
+    stopChat();
     if (u) Avatars.fetchProfiles([u.uid]);
     synced = false;
     openCode = null;
@@ -263,6 +264,7 @@
   function renderBoard() {
     const tabs = $("board-tabs");
     if (!tabs) return;
+    stopChat();
     tabs.innerHTML = "";
     for (const t of ["global", "leagues"]) {
       const b = el("button", "", t === "global" ? "Everyone" : "My leagues");
@@ -477,6 +479,92 @@
     setNote(note);
   }
 
+  // ---- League chat ---------------------------------------------------------
+
+  let chatStop = null;
+  function stopChat() { if (chatStop) { try { chatStop(); } catch (e) { /* already stopped */ } chatStop = null; } }
+
+  function timeText(ms) {
+    const d = new Date(ms), now = new Date();
+    const hm = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    return d.toDateString() === now.toDateString() ? hm : d.toLocaleDateString([], { day: "numeric", month: "short" }) + " " + hm;
+  }
+
+  function renderChat(box, lg) {
+    stopChat();
+    const wrap = el("div", "chat");
+    wrap.appendChild(el("h3", "", "League chat"));
+    const list = el("div", "chat-list");
+    list.setAttribute("aria-live", "polite");
+    list.appendChild(el("p", "muted", "Loading messages..."));
+    wrap.appendChild(list);
+    const form = el("form", "chat-form");
+    const input = el("input");
+    input.placeholder = "Say something to your league";
+    input.maxLength = 300;
+    input.autocomplete = "off";
+    const send = el("button", "", "Send");
+    send.type = "submit";
+    form.appendChild(input);
+    form.appendChild(send);
+    wrap.appendChild(form);
+    const err = el("p", "error");
+    wrap.appendChild(err);
+    box.appendChild(wrap);
+
+    form.addEventListener("submit", function (ev) {
+      ev.preventDefault();
+      const text = input.value.trim();
+      if (!text) return;
+      input.value = "";
+      err.textContent = "";
+      cloud().sendMessage(lg.code, text).catch(function (e) { input.value = text; err.textContent = friendly(e); });
+    });
+
+    function draw(msgs) {
+      const atBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 60;
+      list.innerHTML = "";
+      if (!msgs.length) list.appendChild(el("p", "muted", "No messages yet. Say something!"));
+      msgs.forEach(function (m) {
+        const mine = user && m.uid === user.uid;
+        const row = el("div", "chat-msg" + (mine ? " mine" : ""));
+        row.appendChild(avatar(m.name, false, m.uid));
+        const body = el("div", "chat-body");
+        const head = el("div", "chat-head");
+        const nm = el("b", "", m.name);
+        nm.setAttribute("data-uname", m.uid);
+        head.appendChild(nm);
+        head.appendChild(el("span", "muted", " " + timeText(m.at)));
+        if (user && (mine || lg.ownerId === user.uid)) {
+          const del = el("button", "chat-del", "\u00d7");
+          del.type = "button";
+          del.title = "Delete this message";
+          del.addEventListener("click", function () {
+            cloud().deleteMessage(lg.code, m.id).catch(function (e) { err.textContent = friendly(e); });
+          });
+          head.appendChild(del);
+        }
+        body.appendChild(head);
+        body.appendChild(el("div", "chat-text", m.text));
+        row.appendChild(body);
+        list.appendChild(row);
+      });
+      Avatars.fetchProfiles(msgs.map(function (m) { return m.uid; }));
+      if (atBottom || !list.dataset.shown) list.scrollTop = list.scrollHeight;
+      list.dataset.shown = "1";
+    }
+
+    try {
+      chatStop = cloud().watchMessages(lg.code, draw, function (e) {
+        list.innerHTML = "";
+        list.appendChild(el("p", "error", friendly(e) + " (If it says permission denied, deploy the new firestore.rules.)"));
+      });
+    } catch (e) {
+      list.innerHTML = "";
+      list.appendChild(el("p", "error", friendly(e)));
+    }
+  }
+
   async function showLeagueTable(box, code) {
     box.appendChild(el("p", "muted", "Loading table..."));
     try {
@@ -493,6 +581,7 @@
       head.appendChild(copy);
       box.appendChild(head);
       box.appendChild(makeTable(lg.rows));
+      if (cloud().watchMessages) renderChat(box, lg);
     } catch (e) {
       box.innerHTML = "";
       box.appendChild(el("p", "error", friendly(e)));

@@ -37,6 +37,8 @@ Live site: https://clutch-fantasy-55b29.web.app
 
 ## Extras
 - Season table on the home page: points from all tournaments added together (newest tournament breaks ties).
+- Double-elimination playoffs after the group stage: in admin press **+ Double-elimination playoffs**, pick the four seeds. Four stages are added (UB Semifinals, UB Final & LB Semifinal, LB Final, Grand Final). Enter each result and Publish: the next matches are created automatically. Players see the bracket under Matches > Playoffs.
+- League chat: every mini-league has a message box under its table (members only, 300 characters, delete your own; the league owner can delete any). Needs `firebase deploy --only firestore:rules`.
 - Pick'Em leaderboard ties: points, then correct picks.
 - Installable on a phone (Add to Home Screen): `manifest.json`, `sw.js`, `icons/`. Pages always load from the network first, so deploys show straight away.
 

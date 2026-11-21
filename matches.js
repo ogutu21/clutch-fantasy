@@ -216,6 +216,7 @@
     rounds.forEach(function (r, i) {
       if (standStage !== "all" && Number(standStage) !== i) return;
       r.matches.forEach(function (m) {
+        if (m.slot) return;   // playoff matches have their own Playoffs view
         if (!(isPlayed(m, r) || hasScore(m))) return;
         const a = table[m.teamA], b = table[m.teamB];
         if (!a || !b || m.teamA === m.teamB) return;
@@ -364,16 +365,51 @@
     });
   }
 
+  // ---- Playoffs (double elimination) ---------------------------------------------
+
+  function slotBox(slot) {
+    const st = slotState(slot);
+    const box = el("div", "bk-slot bk-" + slot + (st.decided ? " done" : ""));
+    box.appendChild(el("div", "bk-title", st.name));
+    [[st.teamA, st.m && typeof st.m.scoreA === "number" ? st.m.scoreA : null], [st.teamB, st.m && typeof st.m.scoreB === "number" ? st.m.scoreB : null]].forEach(function (t) {
+      const row = el("div", "bk-team" + (t[0] && st.winner === t[0] ? " win" : "") + (t[0] && st.loser === t[0] ? " lose" : "") + (t[0] ? "" : " tbd"));
+      if (t[0]) { const b = badge(t[0]); b.classList.add("sm"); row.appendChild(b); }
+      row.appendChild(el("span", "bk-name", t[0] ? shortTeam(t[0]) : "TBD"));
+      row.appendChild(el("span", "bk-score", t[1] === null ? "" : String(t[1])));
+      box.appendChild(row);
+    });
+    return box;
+  }
+
+  function playoffView(box) {
+    box.appendChild(el("h2", "", "Playoffs"));
+    box.appendChild(el("p", "muted", "Double elimination. Lose once and you drop to the lower bracket; lose twice and you are out. The upper bracket winner and the lower bracket winner meet in the Grand Final."));
+    const scroll = el("div", "bk-scroll");
+    const grid = el("div", "bk");
+    BRACKET_ORDER.forEach(function (slot) { grid.appendChild(slotBox(slot)); });
+    scroll.appendChild(grid);
+    box.appendChild(scroll);
+    const gf = slotState("gf");
+    if (gf.decided) {
+      box.appendChild(el("div", "champ-banner", "\ud83c\udfc6 Champion: " + shortTeam(gf.winner) + " \u00b7 Runner-up: " + shortTeam(gf.loser)));
+    }
+  }
+
   function renderMatches() {
     const box = document.getElementById("match-center");
     if (!box || typeof rounds === "undefined") return;
     try {
       box.innerHTML = "";
-      box.appendChild(seg([["matches", "Matches"], ["standings", FORMAT === "bracket" ? "Bracket" : "Standings"], ["teams", "Teams"], ["pickem", "Pick'Em"]], view, function (v) {
+      const tabs = [["matches", "Matches"], ["standings", FORMAT === "bracket" ? "Bracket" : "Standings"]];
+      if (typeof hasBracket === "function" && hasBracket()) tabs.push(["playoffs", "Playoffs"]);
+      tabs.push(["teams", "Teams"], ["pickem", "Pick'Em"]);
+      if (view === "playoffs" && tabs.every(function (t) { return t[0] !== "playoffs"; })) view = "matches";
+      box.appendChild(seg(tabs, view, function (v) {
         view = v;
         renderMatches();
       }));
       if (view === "pickem" && window.PickEm) window.PickEm.render(box);
+      else if (view === "playoffs") playoffView(box);
       else if (view === "teams") teamsView(box);
       else if (view === "standings") standingsView(box);
       else matchesView(box);

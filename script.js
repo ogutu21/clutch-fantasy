@@ -419,6 +419,76 @@ function scorePickEm(picks) {
   return out;
 }
 
+// ---- Double-elimination playoffs (upper bracket, lower bracket, grand final) ----------------------
+// Each playoff match carries m.slot. Stages that hold bracket matches list them in round.bracket (the slots they will hold).
+// Teams of later slots come from earlier results: W = winner of that slot, L = loser.
+const BRACKET_SLOTS = {
+  ub1: { name: "UB Semifinal 1" },
+  ub2: { name: "UB Semifinal 2" },
+  lbs: { name: "LB Semifinal", from: [["ub1", "L"], ["ub2", "L"]] },
+  ubf: { name: "UB Final", from: [["ub1", "W"], ["ub2", "W"]] },
+  lbf: { name: "LB Final", from: [["lbs", "W"], ["ubf", "L"]] },
+  gf: { name: "Grand Final", from: [["ubf", "W"], ["lbf", "W"]] },
+};
+const BRACKET_ORDER = ["ub1", "ub2", "lbs", "ubf", "lbf", "gf"];
+
+function hasBracket() {
+  return rounds.some(function (r) { return r.matches.some(function (m) { return m.slot; }); });
+}
+
+function bracketFind(slot) {
+  for (let i = 0; i < rounds.length; i++) {
+    for (const m of rounds[i].matches) if (m.slot === slot) return { m: m, round: rounds[i], r: i };
+  }
+  return null;
+}
+
+// What we know about one slot: its teams (from its match, or from earlier results), score, and winner/loser once decided.
+function slotState(slot) {
+  const def = BRACKET_SLOTS[slot];
+  const found = bracketFind(slot);
+  const st = { slot: slot, name: def.name, teamA: null, teamB: null, m: null, decided: false, winner: null, loser: null };
+  if (found) {
+    st.m = found.m;
+    st.teamA = found.m.teamA;
+    st.teamB = found.m.teamB;
+    st.decided = matchDecided(found.m, found.round);
+    if (st.decided) {
+      st.winner = matchWinner(found.m);
+      st.loser = st.winner === found.m.teamA ? found.m.teamB : found.m.teamA;
+    }
+  } else if (def.from) {
+    const pick = function (f) {
+      const s = slotState(f[0]);
+      return s.decided ? (f[1] === "W" ? s.winner : s.loser) : null;
+    };
+    st.teamA = pick(def.from[0]);
+    st.teamB = pick(def.from[1]);
+  }
+  return st;
+}
+
+// Create the matches whose two teams are now known. Returns how many were added.
+function bracketFillNext() {
+  let added = 0;
+  for (let pass = 0; pass < 4; pass++) {
+    let any = false;
+    rounds.forEach(function (round) {
+      (Array.isArray(round.bracket) ? round.bracket : []).forEach(function (slot) {
+        if (!BRACKET_SLOTS[slot] || bracketFind(slot)) return;
+        const st = slotState(slot);
+        if (st.teamA && st.teamB && st.teamA !== st.teamB) {
+          round.matches.push({ id: newMatchId(), teamA: st.teamA, teamB: st.teamB, winner: st.teamA, slot: slot });
+          added++;
+          any = true;
+        }
+      });
+    });
+    if (!any) break;
+  }
+  return added;
+}
+
 function matchOfTeam(team, round) {
   for (const m of round.matches) {
     if (m.teamA === team || m.teamB === team) return m;

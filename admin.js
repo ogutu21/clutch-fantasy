@@ -757,6 +757,68 @@
       renderRound();
     });
     box.appendChild(add);
+    if (!hasBracket()) {
+      const bk = el("button", "outline", "+ Double-elimination playoffs");
+      bk.type = "button";
+      bk.title = "Adds the playoff stages: upper bracket, lower bracket and grand final";
+      bk.addEventListener("click", openBracketSetup);
+      box.appendChild(bk);
+    }
+  }
+
+  // ---- Double-elimination playoffs ---------------------------------------------
+
+  function openBracketSetup() {
+    const teams = teamNames();
+    if (teams.length < 4) { note("You need at least 4 teams for the playoffs.", true); return; }
+    let dlg = $("bracket-dialog");
+    if (!dlg) { dlg = el("dialog"); dlg.id = "bracket-dialog"; document.body.appendChild(dlg); }
+    dlg.innerHTML = "";
+    dlg.appendChild(el("h3", "", "Double-elimination playoffs"));
+    dlg.appendChild(el("p", "muted", "Four teams. Seed 1 plays seed 4 and seed 2 plays seed 3 in the upper bracket semifinals. Losers drop to the lower bracket; the lower bracket winner and the upper bracket winner meet in the grand final. Four stages are added; later matches appear by themselves as results come in (when you Publish)."));
+    const sels = [];
+    for (let i = 0; i < 4; i++) {
+      const row = el("div", "imp-field");
+      row.appendChild(el("label", "", "Seed " + (i + 1)));
+      const s = el("select");
+      teams.forEach(function (t) { const o = el("option", "", t); o.value = t; s.appendChild(o); });
+      s.value = teams[i];
+      row.appendChild(s);
+      sels.push(s);
+      dlg.appendChild(row);
+    }
+    const msg = el("p", "error");
+    dlg.appendChild(msg);
+    const actions = el("div", "dialog-actions");
+    const close = function () { if (dlg.close) dlg.close(); else dlg.removeAttribute("open"); };
+    const go = el("button", "", "Add playoff stages");
+    go.type = "button";
+    go.addEventListener("click", function () {
+      const seeds = sels.map(function (s) { return s.value; });
+      if (new Set(seeds).size !== 4) { msg.textContent = "Pick four different teams."; return; }
+      const mk = function (name, type, slots, matches) { return { name: name, type: type, locked: false, matches: matches, stats: {}, bracket: slots }; };
+      const first = mk("UB Semifinals", "playoffs", ["ub1", "ub2"], [
+        { id: newMatchId(), teamA: seeds[0], teamB: seeds[3], winner: seeds[0], slot: "ub1" },
+        { id: newMatchId(), teamA: seeds[1], teamB: seeds[2], winner: seeds[1], slot: "ub2" },
+      ]);
+      rounds.push(first);
+      rounds.push(mk("UB Final & LB Semifinal", "playoffs", ["ubf", "lbs"], []));
+      rounds.push(mk("LB Final", "playoffs", ["lbf"], []));
+      rounds.push(mk("Grand Final", "final", ["gf"], []));
+      selectedRound = rounds.length - 4;
+      markDirty();
+      close();
+      renderRoundTabs();
+      renderRound();
+      note("Playoff stages added. Set deadlines, enter results, then Publish: the next matches are created for you.");
+    });
+    const cancel = el("button", "outline", "Cancel");
+    cancel.type = "button";
+    cancel.addEventListener("click", close);
+    actions.appendChild(go);
+    actions.appendChild(cancel);
+    dlg.appendChild(actions);
+    if (dlg.showModal) { if (!dlg.open) dlg.showModal(); } else dlg.setAttribute("open", "");
   }
 
   // "2026-11-08T18:00:00+03:00" <-> the value a datetime-local box wants
@@ -867,6 +929,17 @@
 
     // Matches
     box.appendChild(el("h3", "", "Matches"));
+    if (hasBracket()) {
+      const fill = el("button", "outline", "Create the next playoff matches");
+      fill.type = "button";
+      fill.title = "Adds matches whose two teams are known from earlier results (this also happens when you Publish)";
+      fill.addEventListener("click", function () {
+        const n = bracketFillNext();
+        if (n) { markDirty(); renderRoundTabs(); renderRound(); note(n + " playoff match(es) created. Publish when ready."); }
+        else note("Nothing to add yet: enter the earlier results (score or stats) first.");
+      });
+      box.appendChild(fill);
+    }
     const teams = teamNames();
     round.matches.forEach(function (m, idx) {
       const row = el("div", "admin-row");
@@ -1265,6 +1338,8 @@
     });
   }
 
+  let lastFilled = 0;   // bracket matches created by the last publish
+
   // Save the tournament. Returns true when it worked.
   async function publish(quiet) {
     const name = $("t-name").value.trim();
@@ -1283,6 +1358,9 @@
     settings.scoring = Object.assign({}, SCORING);
     const size = JSON.stringify({ players: players, rounds: rounds, settings: settings }).length;
     if (size > 900000) { note("This tournament is " + Math.round(size / 1000) + " KB, close to the 1 MB limit. Remove some uploaded photos (the built-in characters are tiny).", true); return false; }
+    const filled = hasBracket() ? bracketFillNext() : 0;
+    lastFilled = filled;
+    if (filled) { renderRoundTabs(); renderRound(); }
     ensureMatchIds();   // every match needs an id so Pick'Em picks stay attached to it
     // Remember the price a player had before this change, so the market can show an arrow.
     players.forEach(function (p) {
@@ -1401,7 +1479,7 @@
       if (!(await publish(true))) return;
       note("Published. Updating the leaderboard...");
       const n = await recalc(true);
-      if (n >= 0) note("Done. Results are live and the leaderboard is updated for " + n + " player(s)." + (warnings.length ? " (" + warnings.length + " warning(s) ignored.)" : ""));
+      if (n >= 0) note("Done. Results are live and the leaderboard is updated for " + n + " player(s)." + (lastFilled ? " " + lastFilled + " new playoff match(es) were created." : "") + (warnings.length ? " (" + warnings.length + " warning(s) ignored.)" : ""));
     } finally {
       setBusy(false);
     }

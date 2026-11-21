@@ -7,7 +7,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 import {
   getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, arrayUnion, writeBatch, serverTimestamp,
-  collection, query, where, orderBy, limit, getDocs, documentId,
+  collection, query, where, orderBy, limit, getDocs, documentId, onSnapshot,
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
 const MAX_LEAGUE_SIZE = 30;   // Firestore "in" queries take at most 30 ids
@@ -361,6 +361,10 @@ if (!configured) {
       const pickScores = await getDocs(collection(db, "tournaments", tid, "pickscores"));
       await wipe(pickScores.docs.map(function (d) { return d.ref; }));
       const leagues = await getDocs(query(collection(db, "leagues"), where("tournamentId", "==", tid)));
+      for (const lg of leagues.docs) {
+        const msgs = await getDocs(collection(db, "leagues", lg.id, "messages"));
+        await wipe(msgs.docs.map(function (d) { return d.ref; }));
+      }
       await wipe(leagues.docs.map(function (d) { return d.ref; }));
       await deleteDoc(doc(db, "tournaments", tid));
       return removed + 1;
@@ -418,6 +422,34 @@ if (!configured) {
         .map(function (d) { return { code: d.id, name: d.data().name, count: d.data().memberIds.length }; });
     },
 
+    // League chat: watch the newest messages (oldest first). Returns a function that stops watching.
+    watchMessages: function (code, cb, onError) {
+      needUser();
+      const q = query(collection(db, "leagues", code, "messages"), orderBy("createdAt", "desc"), limit(60));
+      return onSnapshot(q, function (snap) {
+        const list = snap.docs.map(function (d) {
+          const x = d.data({ serverTimestamps: "estimate" });
+          return { id: d.id, uid: x.uid, name: x.name, text: x.text, at: x.createdAt && x.createdAt.toMillis ? x.createdAt.toMillis() : Date.now() };
+        });
+        list.reverse();
+        cb(list);
+      }, function (e) { if (onError) onError(e); });
+    },
+
+    sendMessage: async function (code, text) {
+      const u = needUser();
+      const t = String(text).trim().slice(0, 300);
+      if (!t) return;
+      await setDoc(doc(collection(db, "leagues", code, "messages")), {
+        uid: u.uid, name: String(u.name).slice(0, 30), text: t, createdAt: serverTimestamp(),
+      });
+    },
+
+    deleteMessage: async function (code, id) {
+      needUser();
+      await deleteDoc(doc(db, "leagues", code, "messages", id));
+    },
+
     leagueTable: async function (tid, code) {
       needUser();
       const snap = await getDoc(doc(db, "leagues", code));
@@ -432,7 +464,7 @@ if (!configured) {
         return { uid: id, name: s ? s.name : "(awaiting results)", total: s ? s.total : 0, rounds: s ? (s.rounds || []) : [] };
       });
       rows.sort(function (a, b) { return b.total - a.total; });
-      return { name: snap.data().name, code: code, rows: rows };
+      return { name: snap.data().name, code: code, rows: rows, ownerId: snap.data().ownerId };
     },
   };
 }

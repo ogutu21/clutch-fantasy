@@ -111,6 +111,26 @@ service cloud.firestore {
         && request.auth.uid in request.resource.data.memberIds
         && request.resource.data.memberIds.size() == resource.data.memberIds.size() + 1
         && request.resource.data.memberIds.size() <= 30;
+
+      // League chat. Only members read and write. You can delete your own messages; the league owner can delete any.
+      match /messages/{mid} {
+        allow read: if request.auth != null
+          && (request.auth.uid in get(/databases/$(database)/documents/leagues/$(code)).data.memberIds || isAdmin());
+        allow create: if request.auth != null
+          && request.auth.uid in get(/databases/$(database)/documents/leagues/$(code)).data.memberIds
+          && request.resource.data.keys().hasOnly(['uid', 'name', 'text', 'createdAt'])
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.name is string
+          && request.resource.data.name.size() <= 30
+          && request.resource.data.text is string
+          && request.resource.data.text.size() >= 1
+          && request.resource.data.text.size() <= 300
+          && request.resource.data.createdAt == request.time;
+        allow delete: if request.auth != null
+          && (resource.data.uid == request.auth.uid
+            || get(/databases/$(database)/documents/leagues/$(code)).data.ownerId == request.auth.uid
+            || isAdmin());
+      }
     }
   }
 }

@@ -1366,3 +1366,40 @@ button.danger:hover { background: #ff7a70; }
 
 .install-box { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 4px 0 12px; }
 .install-box button { margin: 0; }
+
+/* League chat */
+.chat { margin-top: 18px; }
+.chat-list { background: var(--panel); border: 1px solid var(--line); max-height: 320px; overflow-y: auto; padding: 8px 10px; display: flex; flex-direction: column; gap: 10px; }
+.chat-msg { display: flex; gap: 8px; align-items: flex-start; }
+.chat-msg .avatar { width: 28px; height: 28px; font-size: 11px; margin-top: 2px; }
+.chat-body { min-width: 0; flex: 1; }
+.chat-head { display: flex; align-items: baseline; gap: 4px; font-size: 13px; }
+.chat-head b { font-family: var(--font-head); letter-spacing: 0.5px; text-transform: uppercase; }
+.chat-msg.mine .chat-head b { color: var(--accent); }
+.chat-head .muted { font-size: 11px; }
+.chat-text { overflow-wrap: anywhere; white-space: pre-wrap; }
+button.chat-del { margin: 0 0 0 auto; padding: 0 6px; font-size: 13px; line-height: 18px; clip-path: none; background: transparent; color: var(--muted); }
+button.chat-del:hover { color: var(--danger); box-shadow: none; }
+.chat-form { display: flex; gap: 8px; margin-top: 8px; }
+.chat-form input { margin: 0; flex: 1; min-width: 0; }
+.chat-form button { margin: 0; flex: none; }
+
+/* Double-elimination bracket */
+.bk-scroll { overflow-x: auto; padding-bottom: 6px; }
+.bk { display: grid; grid-template-columns: repeat(3, minmax(150px, 1fr)); grid-template-rows: repeat(3, auto); gap: 12px 22px; min-width: 520px; align-items: center; }
+.bk-ub1 { grid-column: 1; grid-row: 1; }
+.bk-ub2 { grid-column: 1; grid-row: 2; }
+.bk-lbs { grid-column: 1; grid-row: 3; }
+.bk-ubf { grid-column: 2; grid-row: 1 / 3; }
+.bk-lbf { grid-column: 2; grid-row: 3; }
+.bk-gf { grid-column: 3; grid-row: 1 / 4; }
+.bk-slot { background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--accent-2); }
+.bk-slot.bk-gf { border-left-color: #ffd45e; }
+.bk-slot.done { border-left-color: var(--obj); }
+.bk-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); padding: 5px 10px; background: var(--panel-2); }
+.bk-team { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-top: 1px solid var(--line); }
+.bk-team .bk-name { flex: 1; min-width: 0; font-family: var(--font-head); font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bk-team .bk-score { font-family: var(--font-head); font-weight: 700; min-width: 16px; text-align: right; }
+.bk-team.win .bk-name, .bk-team.win .bk-score { color: var(--accent); }
+.bk-team.lose { opacity: 0.55; }
+.bk-team.tbd .bk-name { color: var(--muted); font-weight: 500; }
